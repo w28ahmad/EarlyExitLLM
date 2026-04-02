@@ -13,23 +13,23 @@ For each token generation step, this script:
 
 Output: 32 CSV files (one per layer), each row = 12 features + 1 label.
 
+Datasets are loaded from HuggingFace train splits to avoid data leakage
+with the SpecEE benchmark eval sets.
+
 Usage:
     conda activate specee
     python generate_training_data.py \
-        --base-model-path <path-to-llama-7b> \
-        --draft-model-path <path-to-eagle-model> \
-        --dataset mt_bench \
-        --max-new-tokens 128 \
-        --output-dir ./training_data
+        --base-model-path meta-llama/Llama-2-7b-chat-hf \
+        --draft-model-path yuhuili/EAGLE-llama2-chat-7B \
+        --dataset alpaca \
+        --approach naive_all_layers
 """
 
 import argparse
 import os
 import sys
-import json
 import csv
 import gc
-from typing import Optional, List
 
 import torch
 import torch.nn.functional as F
@@ -45,18 +45,9 @@ from cnets import Model
 from transformers import AutoConfig, AutoTokenizer
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 from transformers.cache_utils import DynamicCache
+from accuracy_prompt import get_commonsenseqa_prompt, get_sst2_prompt
 
 TOP_K = 4  # Same as SpecEE's cnets.py
-
-
-def load_questions(question_file: str, begin: int = 0, end: int = None):
-    """Load questions from a JSONL file."""
-    questions = []
-    with open(question_file, "r") as f:
-        for line in f:
-            if line.strip():
-                questions.append(json.loads(line))
-    return questions[begin:end]
 
 
 def format_prompt(message: str) -> str:
@@ -202,14 +193,14 @@ def collect_features_and_labels(
 
         # Get token this layer would predict
         layer_logits = lm_head(h_last)
-        layer_tok = torch.argmax(layer_logits[0, 0]).item()
+        layer_tok = torch.argmax(layer_logits[0, 0]).item() # each layer's top token
         layer_tokens.append(layer_tok)
 
         # Free intermediate tensors immediately
         del h_normed, h_last, draft_logits, draft_prob, prob_gap, layer_logits
 
     # Final token is from last layer
-    final_token = layer_tokens[-1]
+    final_token = layer_tokens[-1] # Ground truth
     final_in_draft = (final_token in draft_token_index.tolist()[0]
                       if draft_token_index.dim() == 2
                       else final_token in draft_token_index.tolist())
@@ -241,7 +232,7 @@ def generate_data(args):
         args.base_model_path,
         torch_dtype=torch.float16,
         low_cpu_mem_usage=True,
-        device_map="auto",
+        device_map={"": "cuda:0"},
         attn_implementation="eager",
     )
     base_model.eval()
@@ -260,11 +251,41 @@ def generate_data(args):
     ea_layer.diff_device = False
     ea_layer.to(base_model.dtype).to("cpu")
 
+    gpu_device = base_model.model.layers[-1].self_attn.q_proj.weight.device
+
     # We need a CPU copy of lm_head weights for EAGLE's topK_genrate
+    # When device_map="auto" offloads lm_head to meta, load from checkpoint directly
     lm_head_cpu = torch.nn.Linear(
         base_model.lm_head.in_features, base_model.lm_head.out_features, bias=False
     ).to(base_model.dtype).to("cpu")
-    lm_head_cpu.weight.data = base_model.lm_head.weight.data.cpu().clone()
+    if base_model.lm_head.weight.device.type == "meta":
+        from safetensors import safe_open
+        from huggingface_hub import scan_cache_dir
+        import json as json_mod
+        # Find cached model snapshot
+        model_dir = None
+        for repo in scan_cache_dir().repos:
+            if args.base_model_path.replace("/", "--") in str(repo.repo_path):
+                for rev in repo.revisions:
+                    model_dir = str(rev.snapshot_path)
+                    break
+                break
+        if model_dir is None:
+            model_dir = args.base_model_path  # local path
+        with open(os.path.join(model_dir, "model.safetensors.index.json")) as f:
+            shard_file = json_mod.load(f)["weight_map"]["lm_head.weight"]
+        with safe_open(os.path.join(model_dir, shard_file), framework="pt", device="cpu") as f:
+            lm_head_weight = f.get_tensor("lm_head.weight").to(base_model.dtype)
+        lm_head_cpu.weight.data = lm_head_weight
+        # Also fix the base model's lm_head so it works during inference
+        base_model.lm_head = torch.nn.Linear(
+            base_model.lm_head.in_features, base_model.lm_head.out_features, bias=False
+        ).to(base_model.dtype).to(gpu_device)
+        base_model.lm_head.weight.data = lm_head_weight.to(gpu_device)
+        del lm_head_weight
+        print("Loaded lm_head from checkpoint (was on meta device)")
+    else:
+        lm_head_cpu.weight.data = base_model.lm_head.weight.data.cpu().clone()
 
     # Load draft model weights
     if os.path.isdir(args.draft_model_path):
@@ -277,14 +298,52 @@ def generate_data(args):
     ea_layer.load_state_dict(ea_layer_state_dict, strict=True)
     ea_layer.eval()
 
-    gpu_device = base_model.model.layers[-1].self_attn.q_proj.weight.device
+    # Load dataset from HuggingFace train splits (NOT benchmark eval sets)
+    from datasets import load_dataset
+    print(f"Loading dataset: {args.dataset} (train split from HuggingFace)")
 
-    # Load dataset
-    print(f"Loading dataset: {args.dataset}")
-    benchmark_dir = os.path.join(SPECEE_DIR, 'benchmark', args.dataset)
-    question_file = os.path.join(benchmark_dir, 'question.jsonl')
-    questions = load_questions(question_file, begin=args.begin, end=args.end)
-    print(f"Loaded {len(questions)} questions")
+    if args.dataset == 'alpaca':
+        ds = load_dataset('tatsu-lab/alpaca', split='train')
+        n = min(args.num_samples or 500, len(ds))
+        ds = ds.shuffle(seed=42).select(range(n))
+        prompts = []
+        for row in ds:
+            msg = row['instruction']
+            if row['input']:
+                msg += f"\n{row['input']}"
+            prompts.append(format_prompt(msg))
+        max_new_tokens = args.max_new_tokens
+
+    elif args.dataset == 'gsm8k':
+        ds = load_dataset('gsm8k', 'main', split='train')
+        n = min(args.num_samples or 500, len(ds))
+        ds = ds.shuffle(seed=42).select(range(n))
+        prompts = [format_prompt(row['question']) for row in ds]
+        max_new_tokens = args.max_new_tokens
+
+    elif args.dataset == 'commonsenseqa':
+        ds = load_dataset('tau/commonsense_qa', split='train')
+        n = min(args.num_samples or 2000, len(ds))
+        ds = ds.shuffle(seed=42).select(range(n))
+        prompts = []
+        for row in ds:
+            choices = row['choices']
+            prompts.append(get_commonsenseqa_prompt(
+                row['question'], choices['label'], choices['text']
+            ))
+        max_new_tokens = 3
+
+    elif args.dataset == 'sst2':
+        ds = load_dataset('glue', 'sst2', split='train')
+        n = min(args.num_samples or 2000, len(ds))
+        ds = ds.shuffle(seed=42).select(range(n))
+        prompts = [get_sst2_prompt(row['sentence']) for row in ds]
+        max_new_tokens = 3
+
+    else:
+        raise ValueError(f"Unknown dataset: {args.dataset}")
+
+    print(f"Loaded {len(prompts)} questions")
 
     # Initialize data collector
     collector = DataCollector(num_layers, args.output_dir)
@@ -292,69 +351,73 @@ def generate_data(args):
     # Generate data
     print("Generating training data...")
     with torch.inference_mode():
-        for q_idx in tqdm(range(len(questions)), desc="Questions"):
-            message = questions[q_idx]['turns'][0]
-            prompt = format_prompt(message)
+        for q_idx in tqdm(range(len(prompts)), desc="Questions"):
+            prompt = prompts[q_idx]
             input_ids = tokenizer([prompt], return_tensors="pt").input_ids.to(gpu_device)
 
             ea_layer.reset_kv()
             torch.cuda.empty_cache()
 
-            # --- First token (init=True): run full model, no features collected ---
-            outputs, token = base_model.model(
-                input_ids=input_ids,
-                use_cache=True,
-                lm_head=base_model.lm_head,
-                exit_layer_id_list=[],
-                init=True,
-            )
-            hidden_states = outputs[0].clone()
-            past_key_values = outputs[1]
-            token = token.to(gpu_device)
-            input_ids = torch.cat((input_ids, token), dim=1)
-
-            # Get draft model's top-k (EAGLE runs on CPU)
-            topk_index, topk_prob, top_head_weight = ea_layer.topK_genrate(
-                hidden_states.cpu(), input_ids.cpu(), lm_head_cpu
-            )
-            # Move results to GPU for feature computation
-            topk_index_gpu = topk_index.to(gpu_device)
-            top_head_weight_gpu = top_head_weight.to(gpu_device)
-
-            # --- Subsequent tokens: collect features at each layer ---
-            for step in range(args.max_new_tokens - 1):
-                hidden_states, token, past_key_values = collect_features_and_labels(
-                    layers=base_model.model.layers,
-                    norm_fn=base_model.model.norm,
+            try:
+                # --- First token (init=True): run full model, no features collected ---
+                outputs, token = base_model.model(
+                    input_ids=input_ids,
+                    use_cache=True,
                     lm_head=base_model.lm_head,
-                    embed_tokens=base_model.model.embed_tokens,
-                    token=token,
-                    past_key_values=past_key_values,
-                    draft_lm_head_weight=top_head_weight_gpu,
-                    draft_token_index=topk_index_gpu,
-                    collector=collector,
+                    exit_layer_id_list=[],
+                    init=True,
                 )
+                hidden_states = outputs[0].clone()
+                past_key_values = outputs[1]
+                token = token.to(gpu_device)
+                input_ids = torch.cat((input_ids, token), dim=1)
 
-                input_ids = torch.cat((input_ids, token.to(gpu_device)), dim=1)
-
-                # Get draft model's top-k (EAGLE on CPU)
+                # Get draft model's top-k (EAGLE runs on CPU)
                 topk_index, topk_prob, top_head_weight = ea_layer.topK_genrate(
                     hidden_states.cpu(), input_ids.cpu(), lm_head_cpu
                 )
+                # Move results to GPU for feature computation
                 topk_index_gpu = topk_index.to(gpu_device)
                 top_head_weight_gpu = top_head_weight.to(gpu_device)
 
-                # Check for EOS
-                if tokenizer.eos_token_id in input_ids[0, -args.max_new_tokens:].tolist():
-                    break
+                # --- Subsequent tokens: collect features at each layer ---
+                for step in range(max_new_tokens - 1):
+                    hidden_states, token, past_key_values = collect_features_and_labels(
+                        layers=base_model.model.layers,
+                        norm_fn=base_model.model.norm,
+                        lm_head=base_model.lm_head,
+                        embed_tokens=base_model.model.embed_tokens,
+                        token=token,
+                        past_key_values=past_key_values,
+                        draft_lm_head_weight=top_head_weight_gpu,
+                        draft_token_index=topk_index_gpu,
+                        collector=collector,
+                    )
 
-            # Flush to disk after each question
-            collector.flush()
+                    input_ids = torch.cat((input_ids, token.to(gpu_device)), dim=1)
+
+                    # Get draft model's top-k (EAGLE on CPU)
+                    topk_index, topk_prob, top_head_weight = ea_layer.topK_genrate(
+                        hidden_states.cpu(), input_ids.cpu(), lm_head_cpu
+                    )
+                    topk_index_gpu = topk_index.to(gpu_device)
+                    top_head_weight_gpu = top_head_weight.to(gpu_device)
+
+                    # Check for EOS
+                    if tokenizer.eos_token_id in input_ids[0, -max_new_tokens:].tolist():
+                        break
+
+                # Flush to disk after each question
+                collector.flush()
+
+            except RuntimeError as e:
+                if "out of memory" in str(e).lower() or "CUDA" in str(e):
+                    print(f"\n  Skipping question {q_idx} (OOM or CUDA error: {e})")
+                    torch.cuda.empty_cache()
+                else:
+                    raise
 
             # Free KV cache between questions
-            del past_key_values, hidden_states, outputs, token, input_ids
-            del topk_index, topk_prob, top_head_weight
-            del topk_index_gpu, top_head_weight_gpu
             gc.collect()
             torch.cuda.empty_cache()
 
@@ -369,16 +432,18 @@ if __name__ == "__main__":
                         help="Path to LLaMA-7B base model")
     parser.add_argument("--draft-model-path", type=str, required=True,
                         help="Path to EAGLE draft model")
-    parser.add_argument("--dataset", type=str, default="mt_bench",
-                        choices=["mt_bench", "alpaca", "gsm8k", "sum", "qa", "humaneval"],
+    parser.add_argument("--dataset", type=str, default="alpaca",
+                        choices=["alpaca", "gsm8k", "commonsenseqa", "sst2"],
                         help="Dataset to use for data generation")
-    parser.add_argument("--output-dir", type=str, default="./training_data",
-                        help="Directory to save per-layer CSV files")
+    parser.add_argument("--approach", type=str, default="naive_all_layers",
+                        help="Approach name for organizing output (e.g., naive_all_layers)")
+    parser.add_argument("--output-dir", type=str, default=None,
+                        help="Directory to save per-layer CSV files (default: training_data/<approach>/<dataset>)")
     parser.add_argument("--max-new-tokens", type=int, default=128,
-                        help="Max tokens to generate per prompt")
-    parser.add_argument("--begin", type=int, default=0,
-                        help="Start index in dataset")
-    parser.add_argument("--end", type=int, default=None,
-                        help="End index in dataset (None = all)")
+                        help="Max tokens to generate per prompt (speed datasets)")
+    parser.add_argument("--num-samples", type=int, default=None,
+                        help="Number of samples to use (default: 500 for speed, 2000 for accuracy)")
     args = parser.parse_args()
+    if args.output_dir is None:
+        args.output_dir = os.path.join("./training_data", args.approach, args.dataset)
     generate_data(args)
