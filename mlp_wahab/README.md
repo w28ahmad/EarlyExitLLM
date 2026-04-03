@@ -1,4 +1,4 @@
-# MLP Early-Exit Predictors (Wahab)
+# MLP Early-Exit Predictors
 
 Training and evaluation pipeline for MLP predictors used in the [SpecEE](../SpecEE/SpecEE_cloud/) early-exit system on LLaMA-2-7B. These predictors decide, at each decoder layer, whether the model can safely skip remaining layers and exit early during speculative decoding.
 
