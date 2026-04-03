@@ -1,0 +1,141 @@
+============================================================
+Training started: 2026-04-03 02:43:08
+Approach 1 | data: ./01_naive_all_layers | output: ./mlp_wahab/trained_models/approach1
+Architecture: MLP(12, 512, 1)
+Log file: ./mlp_wahab/trained_models/approach1/training_log.txt
+============================================================
+
+--- Layer 0 (1/32) ---
+  -> Done in 15.2s | val_loss=0.1369 acc=0.9731 f1=0.5214 | Elapsed: 0:00:15 | ETA: 02:51:13 (31 layers left, ~0:07:50)
+
+--- Layer 1 (2/32) ---
+  -> Done in 14.6s | val_loss=0.2094 acc=0.9630 f1=0.5538 | Elapsed: 0:00:29 | ETA: 02:51:04 (30 layers left, ~0:07:26)
+
+--- Layer 2 (3/32) ---
+  -> Done in 24.6s | val_loss=0.1685 acc=0.9622 f1=0.5536 | Elapsed: 0:00:54 | ETA: 02:52:47 (29 layers left, ~0:08:45)
+
+--- Layer 3 (4/32) ---
+  -> Done in 22.6s | val_loss=0.1609 acc=0.9690 f1=0.6456 | Elapsed: 0:01:16 | ETA: 02:53:23 (28 layers left, ~0:08:58)
+
+--- Layer 4 (5/32) ---
+  -> Done in 8.2s | val_loss=0.2031 acc=0.9533 f1=0.5566 | Elapsed: 0:01:25 | ETA: 02:52:12 (27 layers left, ~0:07:39)
+
+--- Layer 5 (6/32) ---
+  -> Done in 8.5s | val_loss=0.1716 acc=0.9635 f1=0.6076 | Elapsed: 0:01:33 | ETA: 02:51:27 (26 layers left, ~0:06:45)
+
+--- Layer 6 (7/32) ---
+  -> Done in 9.4s | val_loss=0.2174 acc=0.9561 f1=0.5619 | Elapsed: 0:01:42 | ETA: 02:50:58 (25 layers left, ~0:06:07)
+
+--- Layer 7 (8/32) ---
+  -> Done in 9.1s | val_loss=0.2280 acc=0.9609 f1=0.6189 | Elapsed: 0:01:52 | ETA: 02:50:36 (24 layers left, ~0:05:36)
+
+--- Layer 8 (9/32) ---
+  -> Done in 10.7s | val_loss=0.2416 acc=0.9482 f1=0.5697 | Elapsed: 0:02:02 | ETA: 02:50:24 (23 layers left, ~0:05:13)
+
+--- Layer 9 (10/32) ---
+  -> Done in 15.9s | val_loss=0.2870 acc=0.9444 f1=0.5881 | Elapsed: 0:02:18 | ETA: 02:50:31 (22 layers left, ~0:05:05)
+
+--- Layer 10 (11/32) ---
+  -> Done in 16.6s | val_loss=0.2440 acc=0.9361 f1=0.5029 | Elapsed: 0:02:35 | ETA: 02:50:39 (21 layers left, ~0:04:56)
+
+--- Layer 11 (12/32) ---
+  -> Done in 21.8s | val_loss=0.2570 acc=0.9388 f1=0.5516 | Elapsed: 0:02:57 | ETA: 02:51:00 (20 layers left, ~0:04:55)
+
+--- Layer 12 (13/32) ---
+  -> Done in 19.6s | val_loss=0.2985 acc=0.9411 f1=0.6133 | Elapsed: 0:03:16 | ETA: 02:51:12 (19 layers left, ~0:04:47)
+
+--- Layer 13 (14/32) ---
+  -> Done in 13.4s | val_loss=0.3457 acc=0.9098 f1=0.5758 | Elapsed: 0:03:30 | ETA: 02:51:08 (18 layers left, ~0:04:30)
+
+--- Layer 14 (15/32) ---
+  -> Done in 25.0s | val_loss=0.3622 acc=0.9173 f1=0.6530 | Elapsed: 0:03:55 | ETA: 02:51:29 (17 layers left, ~0:04:26)
+
+--- Layer 15 (16/32) ---
+  -> Done in 18.1s | val_loss=0.4114 acc=0.8771 f1=0.5967 | Elapsed: 0:04:13 | ETA: 02:51:34 (16 layers left, ~0:04:13)
+
+--- Layer 16 (17/32) ---
+  -> Done in 26.5s | val_loss=0.4726 acc=0.8736 f1=0.6849 | Elapsed: 0:04:39 | ETA: 02:51:54 (15 layers left, ~0:04:06)
+
+--- Layer 17 (18/32) ---
+  -> Done in 26.9s | val_loss=0.4677 acc=0.8555 f1=0.7470 | Elapsed: 0:05:06 | ETA: 02:52:13 (14 layers left, ~0:03:58)
+
+--- Layer 18 (19/32) ---
+  -> Done in 29.1s | val_loss=0.4894 acc=0.8424 f1=0.7562 | Elapsed: 0:05:35 | ETA: 02:52:33 (13 layers left, ~0:03:49)
+
+--- Layer 19 (20/32) ---
+  -> Done in 12.7s | val_loss=0.5048 acc=0.8330 f1=0.7626 | Elapsed: 0:05:48 | ETA: 02:52:25 (12 layers left, ~0:03:28)
+
+--- Layer 20 (21/32) ---
+  -> Done in 28.0s | val_loss=0.5010 acc=0.8216 f1=0.7653 | Elapsed: 0:06:16 | ETA: 02:52:41 (11 layers left, ~0:03:17)
+
+--- Layer 21 (22/32) ---
+  -> Done in 27.2s | val_loss=0.4661 acc=0.8143 f1=0.7882 | Elapsed: 0:06:43 | ETA: 02:52:55 (10 layers left, ~0:03:03)
+
+--- Layer 22 (23/32) ---
+  -> Done in 20.7s | val_loss=0.4721 acc=0.8048 f1=0.7866 | Elapsed: 0:07:04 | ETA: 02:52:58 (9 layers left, ~0:02:45)
+
+--- Layer 23 (24/32) ---
+  -> Done in 26.9s | val_loss=0.4111 acc=0.8217 f1=0.8163 | Elapsed: 0:07:31 | ETA: 02:53:09 (8 layers left, ~0:02:30)
+
+--- Layer 24 (25/32) ---
+  -> Done in 15.6s | val_loss=0.3974 acc=0.8109 f1=0.8173 | Elapsed: 0:07:46 | ETA: 02:53:05 (7 layers left, ~0:02:10)
+
+--- Layer 25 (26/32) ---
+  -> Done in 26.5s | val_loss=0.3492 acc=0.8239 f1=0.8423 | Elapsed: 0:08:13 | ETA: 02:53:15 (6 layers left, ~0:01:53)
+
+--- Layer 26 (27/32) ---
+  -> Done in 27.9s | val_loss=0.3070 acc=0.8169 f1=0.8465 | Elapsed: 0:08:41 | ETA: 02:53:25 (5 layers left, ~0:01:36)
+
+--- Layer 27 (28/32) ---
+  -> Done in 28.2s | val_loss=0.2556 acc=0.8225 f1=0.8627 | Elapsed: 0:09:09 | ETA: 02:53:35 (4 layers left, ~0:01:18)
+
+--- Layer 28 (29/32) ---
+  -> Done in 14.8s | val_loss=0.1915 acc=0.8441 f1=0.8900 | Elapsed: 0:09:24 | ETA: 02:53:30 (3 layers left, ~0:00:58)
+
+--- Layer 29 (30/32) ---
+  -> Done in 28.1s | val_loss=0.1466 acc=0.8325 f1=0.8858 | Elapsed: 0:09:52 | ETA: 02:53:39 (2 layers left, ~0:00:39)
+
+--- Layer 30 (31/32) ---
+  -> Done in 26.7s | val_loss=0.0878 acc=0.8422 f1=0.9004 | Elapsed: 0:10:18 | ETA: 02:53:47 (1 layers left, ~0:00:19)
+
+--- Layer 31 (32/32) ---
+  -> Done in 11.5s | val_loss=0.0354 acc=0.8825 f1=0.9339 | Elapsed: 0:10:30 | ETA: 02:53:38 (0 layers left, ~0:00:00)
+
+======================================================================
+Training complete: 2026-04-03 02:53:38 (total: 0:10:30)
+Layer   Val Loss   Accuracy         F1   Time (s)
+----------------------------------------------------------------------
+    0     0.1369     0.9731     0.5214       15.2
+    1     0.2094     0.9630     0.5538       14.6
+    2     0.1685     0.9622     0.5536       24.6
+    3     0.1609     0.9690     0.6456       22.6
+    4     0.2031     0.9533     0.5566        8.2
+    5     0.1716     0.9635     0.6076        8.5
+    6     0.2174     0.9561     0.5619        9.4
+    7     0.2280     0.9609     0.6189        9.1
+    8     0.2416     0.9482     0.5697       10.7
+    9     0.2870     0.9444     0.5881       15.9
+   10     0.2440     0.9361     0.5029       16.6
+   11     0.2570     0.9388     0.5516       21.8
+   12     0.2985     0.9411     0.6133       19.6
+   13     0.3457     0.9098     0.5758       13.4
+   14     0.3622     0.9173     0.6530       25.0
+   15     0.4114     0.8771     0.5967       18.1
+   16     0.4726     0.8736     0.6849       26.5
+   17     0.4677     0.8555     0.7470       26.9
+   18     0.4894     0.8424     0.7562       29.1
+   19     0.5048     0.8330     0.7626       12.7
+   20     0.5010     0.8216     0.7653       28.0
+   21     0.4661     0.8143     0.7882       27.2
+   22     0.4721     0.8048     0.7866       20.7
+   23     0.4111     0.8217     0.8163       26.9
+   24     0.3974     0.8109     0.8173       15.6
+   25     0.3492     0.8239     0.8423       26.5
+   26     0.3070     0.8169     0.8465       27.9
+   27     0.2556     0.8225     0.8627       28.2
+   28     0.1915     0.8441     0.8900       14.8
+   29     0.1466     0.8325     0.8858       28.1
+   30     0.0878     0.8422     0.9004       26.7
+   31     0.0354     0.8825     0.9339       11.5
+
+Log saved to: ./mlp_wahab/trained_models/approach1/training_log.txt

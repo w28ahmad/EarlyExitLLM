@@ -1,2 +1,4 @@
 __pycache__/
 training_data/
+01_naive_all_layers
+.venv/
