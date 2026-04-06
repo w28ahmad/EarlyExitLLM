@@ -1,0 +1,16 @@
+SpecEE_cloud — Modified derivative of SpecEE
+============================================
+
+This directory contains code derived from the SpecEE project:
+
+  Original repository: https://github.com/infinigence/SpecEE
+  Paper: "SpecEE: Accelerating Large Language Model Inference with Speculative Early Exiting"
+  Authors: Jiaming Xu, Jiayi Pan, Yongkang Zhou, Siming Chen, Jinhao Li,
+           Yaoxiu Lian, Junyi Wu, Guohao Dai
+  Copyright 2024 OpenBMB
+  Licensed under the Apache License, Version 2.0
+
+Modifications by the EarlyExitLLM team (ECE1513 Final Project):
+  - Added Apple MPS (Metal) device support for macOS inference
+  - Modified device selection logic (CUDA -> MPS -> CPU fallback)
+  - Integrated custom MLP predictor loading (state_dict format)
